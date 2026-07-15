@@ -1,7 +1,10 @@
 # PR Response Doc — CineLog Watchlist Feature
 
 ## AI Usage
-<!-- Fill at the end -->
+I used AI for codebase orientation and for stress-testing my design arguments — not to write the decisions.
+- **Orientation:** I had AI summarize `collection_service.py` and explain how `add_to_collection`'s deduplication check works, so I could mirror that exact pattern in `add_to_watchlist` rather than inventing my own. I verified the explanation against the actual code before implementing.
+- **Stress-testing Comments 4 and 5:** After writing my own positions (private-by-default; date-added sort), I asked AI what counterargument a reviewer would raise. For Comment 4 it surfaced the "a social platform defaulting to private undercuts discovery" objection; I already had the tradeoff acknowledged, and I sharpened my reasoning to note that opt-in sharing produces higher-signal discovery. The core positions and reasoning are my own.
+- **Commit hygiene:** I had AI confirm my `git log --oneline` used conventional commit format and check whether any commit bundled multiple logical changes, then verified against the conventional commits spec myself.
 
 ## Comment 1 — Rename
 **What I did:** Renamed `save_to_watchlist()` to `add_to_watchlist()` in `services/watchlist_service.py` to follow the project's verb_to_noun naming convention, matching `add_to_collection()`. Updated the one call site in `routes/watchlist/watchlist.py` — both the import and the call inside `add_film()`.
@@ -34,7 +37,27 @@
 I added a second watchlist test beyond what the review requested: `test_add_to_watchlist_duplicate_raises`. I chose the duplicate-entry edge case because deduplication (Comment 2) is the watchlist's most behavior-critical guard — a silent duplicate would corrupt the list and isn't caught by the nonexistent-film test. The test adds the same film twice for one user, asserts `AlreadyInWatchlistError` is raised on the second call, and confirms exactly one row exists in the database afterward, matching the assertion style of `test_add_to_collection_duplicate_raises`.
 
 ## PR Description
-<!-- Written at the end -->
+
+### What this feature does
+Adds a watchlist to CineLog so users can save films they want to watch later (distinct from the collection, which tracks films already watched). Includes a `WatchlistEntry` model, service functions (`add_to_watchlist`, `get_watchlist`), and REST endpoints (`GET /watchlist/<user_id>`, `POST /watchlist/<user_id>/add`). Adding a film that's already on the list raises `AlreadyInWatchlistError` instead of creating a duplicate.
+
+### Design decisions
+- **Default visibility:** New watchlists default to `public=False` (private). A watchlist is save-for-later and more personal than a watched-and-rated collection, so privacy-by-default avoids accidental exposure; users who want to share opt in explicitly. (Full reasoning under Comment 4 above.)
+- **Sort order:** `get_watchlist` returns entries by `date_added` descending (newest first), replacing the original alphabetical sort. A watchlist is a queue, not a reference table, and this matches the existing `get_collection` pattern. (Full reasoning under Comment 5 above.)
+
+### How to manually test
+1. Set up and run: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`, then `python app.py`.
+2. You'll need a valid user_id and film_id (UUIDs) from the seeded database.
+3. Add a film to the watchlist: 
+curl -X POST http://127.0.0.1:5000/watchlist/<user_id>/add 
+-H "Content-Type: application/json" 
+-d '{"film_id": "<film_uuid>"}'
+Expect a `201` with the new entry.
+4. Add the same film again — expect it to be rejected as a duplicate (no second entry created).
+5. View the watchlist:
+curl http://127.0.0.1:5000/watchlist/<user_id>
+Expect the films returned newest-added first.
+6. Run the test suite: `pytest tests/ -v` — all tests pass, including `test_add_to_watchlist_nonexistent_film_raises` and `test_add_to_watchlist_duplicate_raises`.
 
 ## Commit History
-<!-- Screenshot of git log --oneline -->
+![git log on feature/watchlist](git-log-cinelog.png)
