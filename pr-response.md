@@ -48,15 +48,19 @@ Adds a watchlist to CineLog so users can save films they want to watch later (di
 ### How to manually test
 1. Set up and run: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`, then `python app.py`.
 2. You'll need a valid user_id and film_id (UUIDs) from the seeded database.
-3. Add a film to the watchlist: 
-curl -X POST http://127.0.0.1:5000/watchlist/<user_id>/add 
--H "Content-Type: application/json" 
--d '{"film_id": "<film_uuid>"}'
-Expect a `201` with the new entry.
+3. Add a film to the watchlist:
+```
+curl -X POST http://127.0.0.1:5000/watchlist/<user_id>/add \
+  -H "Content-Type: application/json" \
+  -d '{"film_id": "<film_uuid>"}'
+```
+   Expect a `201` with the new entry.
 4. Add the same film again — expect it to be rejected as a duplicate (no second entry created).
 5. View the watchlist:
+```
 curl http://127.0.0.1:5000/watchlist/<user_id>
-Expect the films returned newest-added first.
+```
+   Expect the films returned newest-added first.
 6. Run the test suite: `pytest tests/ -v` — all tests pass, including `test_add_to_watchlist_nonexistent_film_raises` and `test_add_to_watchlist_duplicate_raises`.
 
 ## Commit History
